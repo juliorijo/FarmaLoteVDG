@@ -15,7 +15,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Descargar el repositorio
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Verificar estructura y compilar
         shell: powershell
