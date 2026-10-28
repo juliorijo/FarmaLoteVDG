@@ -7,6 +7,28 @@ $script:passed = 0
 $script:failures = New-Object 'System.Collections.Generic.List[string]'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 
+try {
+    [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+}
+catch {
+}
+
+# Emojis are built from code points so this script remains ASCII-safe in Windows PowerShell 5.
+function Get-Emoji {
+    param([int[]]$CodePoints)
+    return (($CodePoints | ForEach-Object { [char]::ConvertFromUtf32($_) }) -join '')
+}
+
+$emoji = @{
+    Pass    = Get-Emoji 0x2705
+    Fail    = Get-Emoji 0x274C
+    Test    = Get-Emoji 0x1F9EA
+    Build   = Get-Emoji 0x1F527
+    Chart   = Get-Emoji 0x1F4CA
+    Party   = Get-Emoji 0x1F389
+    Warning = Get-Emoji 0x26A0, 0xFE0F
+}
+
 function Assert-Structure {
     param(
         [bool]$Condition,
@@ -15,20 +37,41 @@ function Assert-Structure {
 
     if ($Condition) {
         $script:passed++
-        Write-Host "[PASS] $Description" -ForegroundColor Green
+        Write-Host "$($emoji.Pass) [PASS] $Description" -ForegroundColor Green
     }
     else {
         $script:failures.Add($Description)
-        Write-Host "[FAIL] $Description" -ForegroundColor Red
+        Write-Host "$($emoji.Fail) [FAIL] $Description" -ForegroundColor Red
     }
 }
+
+function Write-EffectivenessBar {
+    param(
+        [int]$Passed,
+        [int]$Total
+    )
+
+    $percent = if ($Total -gt 0) { [Math]::Round(($Passed * 100.0) / $Total, 1) } else { 0 }
+    $width = 30
+    $filled = [int][Math]::Floor(($percent / 100) * $width)
+    $color = if ($percent -ge 100) { 'Green' } elseif ($percent -ge 80) { 'Yellow' } else { 'Red' }
+    $fullBlock = [string][char]0x2588
+    $lightShade = [string][char]0x2591
+
+    Write-Host "`n$($emoji.Chart) Efectividad de la estructura"
+    Write-Host ('[' + ($fullBlock * $filled) + ($lightShade * ($width - $filled)) + '] ') -NoNewline -ForegroundColor $color
+    Write-Host ("{0}% ({1}/{2})" -f $percent.ToString([Globalization.CultureInfo]::InvariantCulture), $Passed, $Total) -ForegroundColor $color
+    return $percent
+}
+
+Write-Host "$($emoji.Test) Verificando la estructura de FarmaLote VDG...`n" -ForegroundColor Cyan
 
 function Read-ProjectFile {
     param([string]$RelativePath)
     $path = Join-Path $repoRoot $RelativePath
     Assert-Structure (Test-Path -LiteralPath $path -PathType Leaf) "Existe $RelativePath"
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
-        throw "Falta el archivo esencial: $RelativePath"
+        return ''
     }
     return [System.IO.File]::ReadAllText($path)
 }
@@ -63,7 +106,15 @@ $designerText = Read-ProjectFile 'Form1.Designer.cs'
 $appConfigText = Read-ProjectFile 'App.config'
 $resourceText = Read-ProjectFile 'Properties\Resources.resx'
 $projectXml = New-Object System.Xml.XmlDocument
-$projectXml.LoadXml($projectText)
+$projectXmlIsValid = $true
+try {
+    $projectXml.LoadXml($projectText)
+}
+catch {
+    $projectXmlIsValid = $false
+    $projectXml.LoadXml('<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" />')
+}
+Assert-Structure $projectXmlIsValid 'FarmaLoteVDG.csproj contiene XML valido'
 $namespaces = New-Object System.Xml.XmlNamespaceManager($projectXml.NameTable)
 $namespaces.AddNamespace('msb', 'http://schemas.microsoft.com/developer/msbuild/2003')
 
@@ -104,7 +155,7 @@ if (-not $SkipBuild) {
     $msbuild = Find-MSBuild
     if (-not $msbuild) {
         $script:failures.Add('No se encontro MSBuild; instala Visual Studio con el destino .NET Framework 4.8 o ejecuta de nuevo con -SkipBuild.')
-        Write-Host '[FAIL] No se encontro MSBuild para compilar el proyecto.' -ForegroundColor Red
+        Write-Host "$($emoji.Fail) [FAIL] No se encontro MSBuild para compilar el proyecto." -ForegroundColor Red
     }
     else {
         $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('FarmaLoteVDG-structure-tests-' + [Guid]::NewGuid().ToString('N'))
@@ -112,11 +163,11 @@ if (-not $SkipBuild) {
         $intermediateOutput = Join-Path $temporaryRoot 'obj\'
         New-Item -ItemType Directory -Path $temporaryRoot | Out-Null
         try {
-            Write-Host "`nCompilando en una carpeta temporal con MSBuild..." -ForegroundColor Cyan
+            Write-Host "`n$($emoji.Build) Compilando en una carpeta temporal con MSBuild..." -ForegroundColor Cyan
             & $msbuild $projectPath '/t:Build' "/p:OutputPath=$buildOutput" "/p:IntermediateOutputPath=$intermediateOutput" '/nologo' '/verbosity:minimal'
             if ($LASTEXITCODE -ne 0) {
                 $script:failures.Add("La compilacion de MSBuild termino con el codigo $LASTEXITCODE.")
-                Write-Host "[FAIL] MSBuild termino con el codigo $LASTEXITCODE." -ForegroundColor Red
+                Write-Host "$($emoji.Fail) [FAIL] MSBuild termino con el codigo $LASTEXITCODE." -ForegroundColor Red
             }
             else {
                 $builtExecutable = Join-Path $buildOutput 'FarmaLoteVDG.exe'
@@ -131,14 +182,17 @@ if (-not $SkipBuild) {
     }
 }
 
-Write-Host "`nPruebas de estructura correctas: $script:passed"
+$total = $script:passed + $script:failures.Count
+$percent = Write-EffectivenessBar -Passed $script:passed -Total $total
+Write-Host "$($emoji.Pass) Correctas: $script:passed   $($emoji.Fail) Fallidas: $($script:failures.Count)"
+
 if ($script:failures.Count -gt 0) {
-    Write-Host "Pruebas fallidas: $($script:failures.Count)" -ForegroundColor Red
+    Write-Host "`n$($emoji.Warning) Efectividad: $($percent.ToString([Globalization.CultureInfo]::InvariantCulture))%. Revisa estas comprobaciones:" -ForegroundColor Red
     foreach ($failure in $script:failures) {
-        Write-Host " - $failure" -ForegroundColor Red
+        Write-Host "  $($emoji.Fail) $failure" -ForegroundColor Red
     }
     exit 1
 }
 
-Write-Host 'Todas las comprobaciones pasaron.' -ForegroundColor Green
+Write-Host "`n$($emoji.Party) 100% efectivo: todas las comprobaciones pasaron." -ForegroundColor Green
 exit 0

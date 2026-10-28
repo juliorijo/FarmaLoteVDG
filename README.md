@@ -26,6 +26,8 @@ La compilación requiere Visual Studio/MSBuild con el destino de .NET Framework 
 .\tests\Test-ProjectStructure.ps1 -SkipBuild
 ```
 
+Cada comprobación muestra ✅ o ❌. Al final aparece una barra de efectividad: si todo pasa indica **100% efectivo**; si algo falla, muestra el porcentaje real, lista las comprobaciones fallidas y termina con código de error.
+
 ## Colaborar en el repositorio
 
 Para evitar que los cambios de varias personas se mezclen, trabajen con ramas cortas y pull requests:
