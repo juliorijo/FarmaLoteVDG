@@ -42,14 +42,14 @@ namespace FarmaLoteVDG
                 {
                     while (reader.Read())
                     {
-                        int idLote = Convert.ToInt32(reader["ID_Lote"]); 
+                        int idLote = Convert.ToInt32(reader["ID_Lote"]);
                         string nombreMedicamento = reader["Nombre_Medicamento"].ToString();
                         string numeroLote = reader["Numero_Lote"].ToString();
                         int cantidad = Convert.ToInt32(reader["Cantidad_Disponible"]);
                         DateTime vencimiento = Convert.ToDateTime(reader["Fecha_Vencimiento"]);
 
                         MedicineLot lote = new MedicineLot(nombreMedicamento, numeroLote, cantidad, vencimiento);
-                        lote.Id = idLote; 
+                        lote.Id = idLote;
 
                         lista.Add(lote);
                     }
@@ -59,8 +59,9 @@ namespace FarmaLoteVDG
             return lista;
         }
 
-        public static void CrearLote(string nombreProducto, string categoria, bool gravado, string numeroLote, DateTime fechaVencimiento, int cantidad)
+        public static int CrearLote(string nombreProducto, string categoria, bool gravado, string numeroLote, DateTime fechaVencimiento, int cantidad)
         {
+            int nuevoId = 0;
             using (SqlConnection conexion = new SqlConnection(cadena))
             {
                 SqlCommand cmd = new SqlCommand("sp_CrearLote", conexion);
@@ -81,7 +82,13 @@ namespace FarmaLoteVDG
 
                 conexion.Open();
                 cmd.ExecuteNonQuery();
+
+                if (paramId.Value != DBNull.Value)
+                {
+                    nuevoId = Convert.ToInt32(paramId.Value);
+                }
             }
+            return nuevoId;
         }
 
         public static void ActualizarLote(MedicineLot lote)
@@ -95,7 +102,7 @@ namespace FarmaLoteVDG
                 cmd.Parameters.AddWithValue("@NumeroLote", lote.LotNumber);
                 cmd.Parameters.AddWithValue("@FechaVencimiento", lote.Expiry);
                 cmd.Parameters.AddWithValue("@Cantidad", lote.Quantity);
-                cmd.Parameters.AddWithValue("@Nombre_Medicamento", lote.Medicine); 
+                cmd.Parameters.AddWithValue("@Nombre_Medicamento", lote.Medicine);
 
                 conexion.Open();
                 cmd.ExecuteNonQuery();
@@ -114,6 +121,5 @@ namespace FarmaLoteVDG
                 cmd.ExecuteNonQuery();
             }
         }
-
     }
 }

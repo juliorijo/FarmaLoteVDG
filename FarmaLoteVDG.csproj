@@ -90,5 +90,8 @@
     <None Include="Resources\FarmaciaVDG.svg" />
     <None Include="Resources\FarmaciaVDG.png" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="FamaLoteVDG.sql\FarmaLoteVDG.sql" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
