@@ -6,7 +6,9 @@ Interfaz de inventario farmacéutico por lotes, desarrollada con Windows Forms y
 
 Abre `FarmaLoteVDG.slnx` o `FarmaLoteVDG.csproj` en Visual Studio y ejecuta el proyecto.
 
-El inventario actual es de demostración y se guarda únicamente en memoria. Los cambios se pierden al cerrar la aplicación. Todavía no hay una base de datos ni un backend conectados.
+El inventario utiliza SQL Server para consultar, registrar, editar y retirar lotes. Los cambios se guardan en la base de datos y se conservan al cerrar la aplicación.
+
+Antes de ejecutarlo, inicia SQL Server y ejecuta `FamaLoteVDG.sql/FarmaLoteVDG.sql` desde SQL Server Management Studio para crear la base de datos y sus procedimientos almacenados. Revisa la conexión `FarmaLoteVDG` en `App.config`: por defecto apunta a `localhost` y utiliza autenticación de Windows. Ajusta el servidor o la instancia según tu equipo y asegúrate de que tu usuario tenga permisos sobre la base de datos. No subas credenciales al repositorio.
 
 ## Verificar la estructura del proyecto
 

@@ -33,26 +33,28 @@ namespace FarmaLoteVDG
 
             using (SqlConnection conexion = new SqlConnection(cadena))
             {
-                string query = "SELECT ID_Lote, Nombre_Medicamento, Numero_Lote, Cantidad_Disponible, Fecha_Vencimiento FROM LOTE WHERE Activo = 1";
-
-                SqlCommand cmd = new SqlCommand(query, conexion);
-                conexion.Open();
-
-                using (SqlDataReader reader = cmd.ExecuteReader())
+                using (SqlCommand cmd = new SqlCommand("sp_ListarLotes", conexion))
                 {
-                    while (reader.Read())
-                    {
-                        int idLote = Convert.ToInt32(reader["ID_Lote"]);
-                        string nombreMedicamento = reader["Nombre_Medicamento"].ToString();
-                        string numeroLote = reader["Numero_Lote"].ToString();
-                        int cantidad = Convert.ToInt32(reader["Cantidad_Disponible"]);
-                        DateTime vencimiento = Convert.ToDateTime(reader["Fecha_Vencimiento"]);
+                        cmd.CommandType = CommandType.StoredProcedure;
+                        cmd.Parameters.Add("@Filtro", SqlDbType.VarChar, 100).Value = (object)filtro ?? DBNull.Value;
+                        conexion.Open();
 
-                        MedicineLot lote = new MedicineLot(nombreMedicamento, numeroLote, cantidad, vencimiento);
-                        lote.Id = idLote;
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                int idLote = Convert.ToInt32(reader["Id"]);
+                                string nombreMedicamento = reader["Medicamento"].ToString();
+                                string numeroLote = reader["NumeroLote"].ToString();
+                                int cantidad = Convert.ToInt32(reader["Cantidad"]);
+                                DateTime vencimiento = Convert.ToDateTime(reader["FechaVencimiento"]);
 
-                        lista.Add(lote);
-                    }
+                                MedicineLot lote = new MedicineLot(nombreMedicamento, numeroLote, cantidad, vencimiento);
+                                lote.Id = idLote;
+
+                                lista.Add(lote);
+                            }
+                        }
                 }
             }
 
@@ -98,7 +100,7 @@ namespace FarmaLoteVDG
                 SqlCommand cmd = new SqlCommand("sp_ActualizarLote", conexion);
                 cmd.CommandType = CommandType.StoredProcedure;
 
-                cmd.Parameters.AddWithValue("@ID_Lote", lote.Id);
+                cmd.Parameters.AddWithValue("@IdLote", lote.Id);
                 cmd.Parameters.AddWithValue("@NumeroLote", lote.LotNumber);
                 cmd.Parameters.AddWithValue("@FechaVencimiento", lote.Expiry);
                 cmd.Parameters.AddWithValue("@Cantidad", lote.Quantity);

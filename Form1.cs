@@ -22,8 +22,6 @@ namespace FarmaLoteVDG
             inventoryGrid.ShowCellToolTips = true;
             activityLabel.LiveSetting = System.Windows.Forms.Automation.AutomationLiveSetting.Polite;
             searchTextBox.TextChanged += delegate { RefreshInventory(null); };
-            newButton.Click += NewButton_Click;
-            editButton.Click += editButton_Click_1;
             retireButton.Click += RetireButton_Click;
             inventoryGrid.SelectionChanged += delegate { UpdateSelection(); };
             inventoryGrid.CellFormatting += InventoryGrid_CellFormatting;
@@ -77,7 +75,7 @@ namespace FarmaLoteVDG
                 demoLabel.Dock = DockStyle.Fill;
                 demoLabel.Margin = new Padding(36, 0, 36, 0);
                 demoLabel.ForeColor = Color.FromArgb(89, 111, 127);
-                demoLabel.Text = "Conectado a Base de Datos SQL Server.";
+                demoLabel.Text = "Inventario almacenado en SQL Server.";
                 mainLayout.RowStyles[1].Height = 32 * DeviceDpi / 96;
             }
             else
@@ -89,7 +87,7 @@ namespace FarmaLoteVDG
                 demoLabel.Bounds = new Rectangle(24 * DeviceDpi / 96,
                     navigationPanel.Height - 140 * DeviceDpi / 96, 152 * DeviceDpi / 96, 112 * DeviceDpi / 96);
                 demoLabel.ForeColor = Color.FromArgb(226, 243, 255);
-                demoLabel.Text = "Conectado a SQL Server.\nFarmaLoteVDG Activo.\n\nLos cambios se guardan\nen la base de datos.";
+                demoLabel.Text = "Los lotes se almacenan\nen SQL Server.";
                 mainLayout.RowStyles[1].Height = 0;
             }
         }
@@ -129,7 +127,7 @@ namespace FarmaLoteVDG
             int expired = lots.Count(lot => lot.Expiry.Date < DateTime.Today);
             int nearExpiry = lots.Count(lot => lot.Expiry.Date >= DateTime.Today
                 && lot.Expiry.Date <= DateTime.Today.AddDays(30));
-            expiryLabel.Text = "1 vencidos    |    2 por vencer en 30 días";
+            expiryLabel.Text = string.Format("{0} vencidos    |    {1} por vencer en 30 días", expired, nearExpiry);
             resultLabel.Text = string.Format("{0} de {1} lotes visibles", visibleLots.Count, lots.Count);
             emptyLabel.Visible = visibleLots.Count == 0;
             emptyLabel.Text = lots.Count == 0

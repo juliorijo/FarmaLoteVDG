@@ -160,7 +160,7 @@
             this.workspaceLabel.Name = "workspaceLabel";
             this.workspaceLabel.Size = new System.Drawing.Size(152, 28);
             this.workspaceLabel.TabIndex = 4;
-            this.workspaceLabel.Text = "Modo demostración";
+            this.workspaceLabel.Text = "Inventario de lotes";
             // 
             // demoLabel
             // 
@@ -171,8 +171,7 @@
             this.demoLabel.Name = "demoLabel";
             this.demoLabel.Size = new System.Drawing.Size(152, 112);
             this.demoLabel.TabIndex = 5;
-            this.demoLabel.Text = "Datos locales en memoria.\nSin base de datos.\n\nLos cambios se pierden\nal cerrar la" +
-    " aplicación.";
+            this.demoLabel.Text = "Los lotes se almacenan\nen SQL Server.";
             // 
             // mainLayout
             // 
