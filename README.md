@@ -13,7 +13,7 @@ Esta rama conecta la aplicación con SQL Server. Los lotes se guardan en la base
 
 ## Pasos para probar esta rama
 
-### 1. Usar mi rama
+### 1. Usar rama
 
 ```bash
 git clone <URL-del-repositorio>
