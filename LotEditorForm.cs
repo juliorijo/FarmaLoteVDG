@@ -229,5 +229,17 @@ namespace FarmaLoteVDG
                 components.Dispose();
             base.Dispose(disposing);
         }
+
+        private void InitializeComponent()
+        {
+            this.SuspendLayout();
+            // 
+            // LotEditorForm
+            // 
+            this.ClientSize = new System.Drawing.Size(1129, 761);
+            this.Name = "LotEditorForm";
+            this.ResumeLayout(false);
+
+        }
     }
 }
