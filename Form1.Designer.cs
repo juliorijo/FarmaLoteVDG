@@ -142,7 +142,7 @@
             this.workspaceLabel.Size = new System.Drawing.Size(152, 28);
             this.workspaceLabel.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             this.workspaceLabel.ForeColor = System.Drawing.Color.White;
-            this.workspaceLabel.Text = "Modo demostración";
+            this.workspaceLabel.Text = "Modo conectado";
             //
             // headerPanel
             //

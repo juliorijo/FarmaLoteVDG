@@ -35,7 +35,7 @@ namespace FarmaLoteVDG
                     EditButton_Click(sender, EventArgs.Empty);
             };
             refreshTimer.Tick += delegate { RefreshInventory(SelectedLot); };
-            LoadDemoLots();
+            LoadLotsFromDatabase();
             RefreshInventory(null);
             AdaptLayout();
         }
@@ -63,7 +63,7 @@ namespace FarmaLoteVDG
                 demoLabel.Dock = DockStyle.Fill;
                 demoLabel.Margin = new Padding(36, 0, 36, 0);
                 demoLabel.ForeColor = Color.FromArgb(89, 111, 127);
-                demoLabel.Text = "Demostración en memoria. Sin base de datos. Los cambios se pierden al cerrar.";
+                demoLabel.Text = "Conectado a la base de datos. Los cambios se guardan automáticamente.";
                 mainLayout.RowStyles[1].Height = 32 * DeviceDpi / 96;
             }
             else
@@ -75,7 +75,7 @@ namespace FarmaLoteVDG
                 demoLabel.Bounds = new Rectangle(24 * DeviceDpi / 96,
                     navigationPanel.Height - 140 * DeviceDpi / 96, 152 * DeviceDpi / 96, 112 * DeviceDpi / 96);
                 demoLabel.ForeColor = Color.FromArgb(226, 243, 255);
-                demoLabel.Text = "Datos locales en memoria.\nSin base de datos.\n\nLos cambios se pierden\nal cerrar la aplicación.";
+                demoLabel.Text = "Datos guardados en\nSQL Server.\n\nLos cambios se conservan\nal cerrar la aplicación.";
                 mainLayout.RowStyles[1].Height = 0;
             }
         }
@@ -85,14 +85,26 @@ namespace FarmaLoteVDG
             get { return inventoryGrid.CurrentRow == null ? null : inventoryGrid.CurrentRow.DataBoundItem as MedicineLot; }
         }
 
-        private void LoadDemoLots()
+        private void LoadLotsFromDatabase()
         {
-            DateTime today = DateTime.Today;
-            lots.Add(new MedicineLot("Paracetamol 500 mg", "PAR-2401", 120, today.AddMonths(8)));
-            lots.Add(new MedicineLot("Amoxicilina 500 mg", "AMX-0312", 48, today.AddDays(18)));
-            lots.Add(new MedicineLot("Loratadina 10 mg", "LOR-0198", 32, today.AddDays(-12)));
-            lots.Add(new MedicineLot("Ibuprofeno 400 mg", "IBU-0815", 85, today.AddMonths(5)));
-            lots.Add(new MedicineLot("Omeprazol 20 mg", "OME-0620", 64, today.AddDays(30)));
+            lots.Clear();
+            try
+            {
+                lots.AddRange(ConexionTest.ListarLotes());
+            }
+            catch (Exception ex)
+            {
+                ShowDatabaseError("No se pudieron cargar los lotes.", ex);
+            }
+        }
+
+        private void ShowDatabaseError(string action, Exception ex)
+        {
+            string detail = ex.Message;
+            if (ex.InnerException != null)
+                detail += "\n\n" + ex.InnerException.Message;
+            MessageBox.Show(this, action + "\n\n" + detail, "Error de base de datos",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private void RefreshInventory(MedicineLot preferredSelection)
@@ -150,9 +162,20 @@ namespace FarmaLoteVDG
             {
                 if (editor.ShowDialog(this) != DialogResult.OK)
                     return;
-                lots.Add(editor.Result);
-                RefreshInventory(editor.Result);
-                AnnounceActivity("Lote registrado en esta sesión.");
+                MedicineLot nuevo = editor.Result;
+                try
+                {
+                    nuevo.Id = ConexionTest.CrearLote(nuevo.Medicine, "General", false,
+                        nuevo.LotNumber, nuevo.Expiry, nuevo.Quantity);
+                }
+                catch (Exception ex)
+                {
+                    ShowDatabaseError("No se pudo registrar el lote.", ex);
+                    return;
+                }
+                lots.Add(nuevo);
+                RefreshInventory(nuevo);
+                AnnounceActivity("Lote registrado en la base de datos.");
             }
         }
 
@@ -165,12 +188,24 @@ namespace FarmaLoteVDG
             {
                 if (editor.ShowDialog(this) != DialogResult.OK)
                     return;
-                selected.Medicine = editor.Result.Medicine;
-                selected.LotNumber = editor.Result.LotNumber;
-                selected.Quantity = editor.Result.Quantity;
-                selected.Expiry = editor.Result.Expiry;
+                MedicineLot actualizado = new MedicineLot(editor.Result.Medicine, editor.Result.LotNumber,
+                    editor.Result.Quantity, editor.Result.Expiry)
+                { Id = selected.Id };
+                try
+                {
+                    ConexionTest.ActualizarLote(actualizado);
+                }
+                catch (Exception ex)
+                {
+                    ShowDatabaseError("No se pudieron guardar los cambios.", ex);
+                    return;
+                }
+                selected.Medicine = actualizado.Medicine;
+                selected.LotNumber = actualizado.LotNumber;
+                selected.Quantity = actualizado.Quantity;
+                selected.Expiry = actualizado.Expiry;
                 RefreshInventory(selected);
-                AnnounceActivity("Cambios guardados en esta sesión.");
+                AnnounceActivity("Cambios guardados en la base de datos.");
             }
         }
 
@@ -180,14 +215,23 @@ namespace FarmaLoteVDG
             if (selected == null)
                 return;
             string message = string.Format(
-                "¿Retirar el lote completo?\n\nMedicamento: {0}\nLote: {1}\nCantidad: {2} unidades\n\nSe quitará del inventario de esta sesión.",
+                "¿Retirar el lote completo?\n\nMedicamento: {0}\nLote: {1}\nCantidad: {2} unidades\n\nSe quitará del inventario.",
                 selected.Medicine, selected.LotNumber, selected.Quantity);
             if (MessageBox.Show(this, message, "Confirmar retiro", MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
                 return;
+            try
+            {
+                ConexionTest.RetirarLote(selected.Id);
+            }
+            catch (Exception ex)
+            {
+                ShowDatabaseError("No se pudo retirar el lote.", ex);
+                return;
+            }
             lots.Remove(selected);
             RefreshInventory(null);
-            AnnounceActivity("Lote retirado de esta sesión.");
+            AnnounceActivity("Lote retirado de la base de datos.");
         }
 
         private void AnnounceActivity(string message)
@@ -268,7 +312,7 @@ namespace FarmaLoteVDG
         }
     }
 
-    internal sealed class MedicineLot
+    public class MedicineLot
     {
         public MedicineLot(string medicine, string lotNumber, int quantity, DateTime expiry)
         {
@@ -278,10 +322,12 @@ namespace FarmaLoteVDG
             Expiry = expiry.Date;
         }
 
+        public int Id { get; set; }
         public string Medicine { get; set; }
         public string LotNumber { get; set; }
         public int Quantity { get; set; }
         public DateTime Expiry { get; set; }
+
         public string Status
         {
             get
