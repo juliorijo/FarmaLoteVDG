@@ -370,6 +370,7 @@ namespace FarmaLoteVDG
         public string LotNumber { get; set; }
         public int Quantity { get; set; }
         public DateTime Expiry { get; set; }
+
         public string Status
         {
             get

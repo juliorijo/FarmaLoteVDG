@@ -1,4 +1,4 @@
-# FarmaLote VDG
+# FarmaLote VDG: gestión de lotes con base de datos
 
 Interfaz de inventario farmacéutico por lotes, desarrollada con Windows Forms y .NET Framework 4.8.
 
