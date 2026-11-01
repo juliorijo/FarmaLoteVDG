@@ -22,22 +22,34 @@ namespace FarmaLoteVDG
             inventoryGrid.ShowCellToolTips = true;
             activityLabel.LiveSetting = System.Windows.Forms.Automation.AutomationLiveSetting.Polite;
             searchTextBox.TextChanged += delegate { RefreshInventory(null); };
-            newButton.Click += NewButton_Click;
-            editButton.Click += EditButton_Click;
             retireButton.Click += RetireButton_Click;
             inventoryGrid.SelectionChanged += delegate { UpdateSelection(); };
             inventoryGrid.CellFormatting += InventoryGrid_CellFormatting;
             inventoryGrid.CellPainting += InventoryGrid_CellPainting;
             Resize += delegate { AdaptLayout(); };
-            inventoryGrid.CellDoubleClick += delegate(object sender, DataGridViewCellEventArgs e)
+            inventoryGrid.CellDoubleClick += delegate (object sender, DataGridViewCellEventArgs e)
             {
                 if (e.RowIndex >= 0)
-                    EditButton_Click(sender, EventArgs.Empty);
+                    editButton_Click_1(sender, EventArgs.Empty);
             };
             refreshTimer.Tick += delegate { RefreshInventory(SelectedLot); };
-            LoadLotsFromDatabase();
+
+            LoadDataFromDatabase();
             RefreshInventory(null);
             AdaptLayout();
+        }
+
+        private void LoadDataFromDatabase()
+        {
+            try
+            {
+                lots.Clear();
+                lots.AddRange(ConexionTest.ListarLotes());
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "Error al cargar los datos de la base de datos:\n" + ex.Message, "Error de conexión", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void AdaptLayout()
@@ -63,7 +75,7 @@ namespace FarmaLoteVDG
                 demoLabel.Dock = DockStyle.Fill;
                 demoLabel.Margin = new Padding(36, 0, 36, 0);
                 demoLabel.ForeColor = Color.FromArgb(89, 111, 127);
-                demoLabel.Text = "Conectado a la base de datos. Los cambios se guardan automáticamente.";
+                demoLabel.Text = "Inventario almacenado en SQL Server.";
                 mainLayout.RowStyles[1].Height = 32 * DeviceDpi / 96;
             }
             else
@@ -75,7 +87,7 @@ namespace FarmaLoteVDG
                 demoLabel.Bounds = new Rectangle(24 * DeviceDpi / 96,
                     navigationPanel.Height - 140 * DeviceDpi / 96, 152 * DeviceDpi / 96, 112 * DeviceDpi / 96);
                 demoLabel.ForeColor = Color.FromArgb(226, 243, 255);
-                demoLabel.Text = "Datos guardados en\nSQL Server.\n\nLos cambios se conservan\nal cerrar la aplicación.";
+                demoLabel.Text = "Los lotes se almacenan\nen SQL Server.";
                 mainLayout.RowStyles[1].Height = 0;
             }
         }
@@ -83,28 +95,6 @@ namespace FarmaLoteVDG
         private MedicineLot SelectedLot
         {
             get { return inventoryGrid.CurrentRow == null ? null : inventoryGrid.CurrentRow.DataBoundItem as MedicineLot; }
-        }
-
-        private void LoadLotsFromDatabase()
-        {
-            lots.Clear();
-            try
-            {
-                lots.AddRange(ConexionTest.ListarLotes());
-            }
-            catch (Exception ex)
-            {
-                ShowDatabaseError("No se pudieron cargar los lotes.", ex);
-            }
-        }
-
-        private void ShowDatabaseError(string action, Exception ex)
-        {
-            string detail = ex.Message;
-            if (ex.InnerException != null)
-                detail += "\n\n" + ex.InnerException.Message;
-            MessageBox.Show(this, action + "\n\n" + detail, "Error de base de datos",
-                MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private void RefreshInventory(MedicineLot preferredSelection)
@@ -137,11 +127,11 @@ namespace FarmaLoteVDG
             int expired = lots.Count(lot => lot.Expiry.Date < DateTime.Today);
             int nearExpiry = lots.Count(lot => lot.Expiry.Date >= DateTime.Today
                 && lot.Expiry.Date <= DateTime.Today.AddDays(30));
-            expiryLabel.Text = string.Format("{0} vencidos   |   {1} por vencer en 30 días", expired, nearExpiry);
+            expiryLabel.Text = string.Format("{0} vencidos    |    {1} por vencer en 30 días", expired, nearExpiry);
             resultLabel.Text = string.Format("{0} de {1} lotes visibles", visibleLots.Count, lots.Count);
             emptyLabel.Visible = visibleLots.Count == 0;
             emptyLabel.Text = lots.Count == 0
-                ? "No hay lotes. Usa Nuevo para registrar el primero."
+                ? "No hay lotes en la base de datos. Usa Nuevo para registrar el primero."
                 : "No se encontraron lotes. Cambia o borra la búsqueda.";
             UpdateSelection();
         }
@@ -162,50 +152,88 @@ namespace FarmaLoteVDG
             {
                 if (editor.ShowDialog(this) != DialogResult.OK)
                     return;
-                MedicineLot nuevo = editor.Result;
+
                 try
                 {
-                    nuevo.Id = ConexionTest.CrearLote(nuevo.Medicine, "General", false,
-                        nuevo.LotNumber, nuevo.Expiry, nuevo.Quantity);
+                    ConexionTest.CrearLote(
+                        editor.Result.Medicine,
+                        "General",
+                        true,
+                        editor.Result.LotNumber,
+                        editor.Result.Expiry,
+                        editor.Result.Quantity
+                    );
+
+                    LoadDataFromDatabase();
+                    RefreshInventory(editor.Result);
+                    AnnounceActivity("Lote registrado en la base de datos.");
                 }
                 catch (Exception ex)
                 {
-                    ShowDatabaseError("No se pudo registrar el lote.", ex);
-                    return;
+                    MessageBox.Show(this, "No se pudo guardar en la base de datos.\n\n" + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
-                lots.Add(nuevo);
-                RefreshInventory(nuevo);
-                AnnounceActivity("Lote registrado en la base de datos.");
             }
         }
 
-        private void EditButton_Click(object sender, EventArgs e)
+        private void editButton_Click_1(object sender, EventArgs e)
         {
             MedicineLot selected = SelectedLot;
+
             if (selected == null)
                 return;
+
             using (LotEditorForm editor = new LotEditorForm(selected, lots))
             {
                 if (editor.ShowDialog(this) != DialogResult.OK)
                     return;
-                MedicineLot actualizado = new MedicineLot(editor.Result.Medicine, editor.Result.LotNumber,
-                    editor.Result.Quantity, editor.Result.Expiry)
-                { Id = selected.Id };
+
+                MedicineLot result = editor.Result;
+
+                DialogResult confirmation = MessageBox.Show(
+                    this,
+                    "¿Deseas aplicar los siguientes cambios en la base de datos?\n\n"
+                    + "Medicamento: " + result.Medicine + "\n"
+                    + "Lote: " + result.LotNumber + "\n"
+                    + "Cantidad: " + result.Quantity + "\n"
+                    + "Vencimiento: " + result.Expiry.ToString("dd/MM/yyyy"),
+                    "Confirmar cambios",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question,
+                    MessageBoxDefaultButton.Button2);
+
+                if (confirmation != DialogResult.Yes)
+                {
+                    AnnounceActivity("Cambios cancelados.");
+                    return;
+                }
+
                 try
                 {
-                    ConexionTest.ActualizarLote(actualizado);
+                    MedicineLot loteActualizado = new MedicineLot(
+                        result.Medicine,
+                        result.LotNumber,
+                        result.Quantity,
+                        result.Expiry);
+
+                    loteActualizado.Id = selected.Id;
+
+                    ConexionTest.ActualizarLote(loteActualizado);
+
+                    LoadDataFromDatabase();
+                    RefreshInventory(selected);
+
+                    AnnounceActivity("Cambios aplicados correctamente en la base de datos.");
                 }
                 catch (Exception ex)
                 {
-                    ShowDatabaseError("No se pudieron guardar los cambios.", ex);
-                    return;
+                    MessageBox.Show(
+                        this,
+                        "No fue posible aplicar los cambios en la base de datos.\n\n"
+                        + ex.Message,
+                        "Error al actualizar",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
                 }
-                selected.Medicine = actualizado.Medicine;
-                selected.LotNumber = actualizado.LotNumber;
-                selected.Quantity = actualizado.Quantity;
-                selected.Expiry = actualizado.Expiry;
-                RefreshInventory(selected);
-                AnnounceActivity("Cambios guardados en la base de datos.");
             }
         }
 
@@ -214,24 +242,26 @@ namespace FarmaLoteVDG
             MedicineLot selected = SelectedLot;
             if (selected == null)
                 return;
+
             string message = string.Format(
-                "¿Retirar el lote completo?\n\nMedicamento: {0}\nLote: {1}\nCantidad: {2} unidades\n\nSe quitará del inventario.",
+                "¿Retirar el lote completo de la base de datos?\n\nMedicamento: {0}\nLote: {1}\nCantidad: {2} unidades\n\nEl lote pasará a estado inactivo.",
                 selected.Medicine, selected.LotNumber, selected.Quantity);
+
             if (MessageBox.Show(this, message, "Confirmar retiro", MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
                 return;
+
             try
             {
                 ConexionTest.RetirarLote(selected.Id);
+                LoadDataFromDatabase();
+                RefreshInventory(null);
+                AnnounceActivity("Lote retirado (desactivado) en la base de datos.");
             }
             catch (Exception ex)
             {
-                ShowDatabaseError("No se pudo retirar el lote.", ex);
-                return;
+                MessageBox.Show(this, "No se pudo retirar el lote.\n\n" + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-            lots.Remove(selected);
-            RefreshInventory(null);
-            AnnounceActivity("Lote retirado de la base de datos.");
         }
 
         private void AnnounceActivity(string message)
@@ -310,9 +340,19 @@ namespace FarmaLoteVDG
             e.Graphics.Restore(state);
             e.Handled = true;
         }
+
+        private void newButton_Click_1(object sender, EventArgs e)
+        {
+            NewButton_Click(sender, e);
+        }
+
+        private void logoPictureBox_Click(object sender, EventArgs e)
+        {
+
+        }
     }
 
-    public class MedicineLot
+    public sealed class MedicineLot
     {
         public MedicineLot(string medicine, string lotNumber, int quantity, DateTime expiry)
         {
@@ -323,7 +363,10 @@ namespace FarmaLoteVDG
         }
 
         public int Id { get; set; }
-        public string Medicine { get; set; }
+        public string Medicine
+        {
+            get; set;
+        }
         public string LotNumber { get; set; }
         public int Quantity { get; set; }
         public DateTime Expiry { get; set; }
@@ -337,5 +380,6 @@ namespace FarmaLoteVDG
                 return Expiry.Date <= DateTime.Today.AddDays(30) ? "Por vencer" : "Vigente";
             }
         }
+        
     }
 }

@@ -33,26 +33,28 @@ namespace FarmaLoteVDG
 
             using (SqlConnection conexion = new SqlConnection(cadena))
             {
-                SqlCommand cmd = new SqlCommand("sp_ListarLotes", conexion);
-                cmd.CommandType = CommandType.StoredProcedure;
-                cmd.Parameters.AddWithValue("@Filtro",
-                    string.IsNullOrWhiteSpace(filtro) ? (object)DBNull.Value : filtro);
-
-                conexion.Open();
-
-                using (SqlDataReader reader = cmd.ExecuteReader())
+                using (SqlCommand cmd = new SqlCommand("sp_ListarLotes", conexion))
                 {
-                    while (reader.Read())
-                    {
-                        MedicineLot lote = new MedicineLot(
-                            reader["Medicamento"].ToString(),
-                            reader["NumeroLote"].ToString(),
-                            Convert.ToInt32(reader["Cantidad"]),
-                            Convert.ToDateTime(reader["FechaVencimiento"]));
-                        lote.Id = Convert.ToInt32(reader["Id"]);
+                        cmd.CommandType = CommandType.StoredProcedure;
+                        cmd.Parameters.Add("@Filtro", SqlDbType.VarChar, 100).Value = (object)filtro ?? DBNull.Value;
+                        conexion.Open();
 
-                        lista.Add(lote);
-                    }
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                int idLote = Convert.ToInt32(reader["Id"]);
+                                string nombreMedicamento = reader["Medicamento"].ToString();
+                                string numeroLote = reader["NumeroLote"].ToString();
+                                int cantidad = Convert.ToInt32(reader["Cantidad"]);
+                                DateTime vencimiento = Convert.ToDateTime(reader["FechaVencimiento"]);
+
+                                MedicineLot lote = new MedicineLot(nombreMedicamento, numeroLote, cantidad, vencimiento);
+                                lote.Id = idLote;
+
+                                lista.Add(lote);
+                            }
+                        }
                 }
             }
 
