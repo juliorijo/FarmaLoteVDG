@@ -1,43 +1,109 @@
-# FarmaLote VDG
+# FarmaLote VDG: gestión de lotes con base de datos
 
-Interfaz de inventario farmacéutico por lotes, desarrollada con Windows Forms y .NET Framework 4.8.
+Rama: `feature/conexion-bd`
 
-## Ejecutar en Visual Studio
+Esta rama conecta la aplicación con SQL Server. Los lotes se guardan en la base de datos `FarmaLoteVDG` y ya no se pierden al cerrar el programa.
 
-Abre `FarmaLoteVDG.slnx` o `FarmaLoteVDG.csproj` en Visual Studio y ejecuta el proyecto.
+## Requisitos
 
-El inventario utiliza SQL Server para consultar, registrar, editar y retirar lotes. Los cambios se guardan en la base de datos y se conservan al cerrar la aplicación.
+- Visual Studio con la carga de trabajo **Desarrollo de escritorio con .NET**
+- **SQL Server** (Express, Developer o LocalDB)
+- **SQL Server Management Studio (SSMS)**
+- Git
 
-Antes de ejecutarlo, inicia SQL Server y ejecuta `FamaLoteVDG.sql/FarmaLoteVDG.sql` desde SQL Server Management Studio para crear la base de datos y sus procedimientos almacenados. Revisa la conexión `FarmaLoteVDG` en `App.config`: por defecto apunta a `localhost` y utiliza autenticación de Windows. Ajusta el servidor o la instancia según tu equipo y asegúrate de que tu usuario tenga permisos sobre la base de datos. No subas credenciales al repositorio.
+## Pasos para probar esta rama
 
-## Verificar la estructura del proyecto
+### 1. Usar rama
 
-Las pruebas automáticas comprueban que se conserven la estructura inicial de Windows Forms, el punto de entrada STA, los vínculos del diseñador, el destino .NET Framework 4.8 y los recursos de marca. También compilan el proyecto en una carpeta temporal para evitar modificar o bloquear los archivos de compilación habituales.
-
-Desde PowerShell, ejecuta:
-
-```powershell
-.\tests\Test-ProjectStructure.ps1
+```bash
+git clone <URL-del-repositorio>
+cd <carpeta-del-repositorio>
+git checkout feature/conexion-bd
 ```
 
-La misma comprobación se ejecuta automáticamente con GitHub Actions al subir cambios a `main`, abrir o actualizar un pull request dirigido a `main`, o iniciarla manualmente desde la pestaña **Actions**.
+Si ya tienen el repositorio clonado:
 
-La compilación requiere Visual Studio/MSBuild con el destino de .NET Framework 4.8. Para ejecutar solo las comprobaciones de estructura cuando no se dispone de MSBuild:
-
-```powershell
-.\tests\Test-ProjectStructure.ps1 -SkipBuild
+```bash
+git fetch
+git checkout feature/conexion-bd
 ```
 
-Cada comprobación muestra ✅ o ❌. Al final aparece una barra de efectividad: si todo pasa indica **100% efectivo**; si algo falla, muestra el porcentaje real, lista las comprobaciones fallidas y termina con código de error.
+### 2. Abrir la solución
 
-## Colaborar en el repositorio
+Abrir `FarmaLoteVDG.slnx` en Visual Studio.
 
-Para evitar que los cambios de varias personas se mezclen, trabajen con ramas cortas y pull requests:
+### 3. Crear la base de datos
 
-1. Actualiza `main` antes de empezar y crea una rama por tarea, por ejemplo `feature/busqueda-lotes` o `fix/validacion-cantidad`.
-2. Limita cada rama a una tarea y asigna claramente qué archivos o parte de la interfaz modifica cada integrante.
-3. Antes de abrir el pull request, compila el proyecto en Visual Studio y comprueba el flujo que cambiaste.
-4. Abre un pull request hacia `main`, describe los cambios y las pruebas realizadas y pide a otra persona del equipo que lo revise.
-5. Integra los cambios solo después de la revisión. Antes de comenzar otra tarea, actualiza tu rama con el `main` más reciente.
+1. Abrir SSMS y conectarse a su servidor SQL. Anotar el nombre que aparece en **Nombre del servidor**.
+2. Abrir el archivo `FarmaLoteVDG.sql/FarmaLoteVDG.sql` (Archivo → Abrir → Archivo).
+3. Pulsar **Ejecutar** (F5).
 
-Mantengan `main` como rama estable y eviten que varias personas editen simultáneamente el mismo formulario o archivo Designer. Si una tarea requiere tocar los mismos archivos, coordinen el cambio primero y divídanlo en pull requests pequeños y consecutivos. No suban `bin/`, `obj/`, `.vs/` ni archivos locales de usuario; ya están excluidos por `.gitignore`.
+El script crea la base `FarmaLoteVDG`, las tablas, los procedimientos almacenados y el trigger. Se puede ejecutar varias veces sin problema.
+
+### 4. Cambiar el servidor en `App.config`
+
+Abrir `App.config` y cambiar el valor de `Server=` por **el nombre de su propio servidor** (el que anotaron en SSMS):
+
+```xml
+<connectionStrings>
+  <add name="FarmaLoteVDG"
+       connectionString="Server=SU_SERVIDOR;Database=FarmaLoteVDG;Trusted_Connection=True;Connect Timeout=5;"
+       providerName="System.Data.SqlClient" />
+</connectionStrings>
+```
+
+Ejemplos de valores para `Server=`:
+
+| Si tienen | Usar |
+|---|---|
+| SQL Server Express | `.\SQLEXPRESS` |
+| Instancia predeterminada | `localhost` |
+| LocalDB (viene con Visual Studio) | `(localdb)\MSSQLLocalDB` |
+| Otra instancia con nombre | `.\NOMBRE_INSTANCIA` |
+
+**Importante:** no subir este cambio a Git. Para que Git ignore sus cambios en ese archivo:
+
+```bash
+git update-index --skip-worktree App.config
+```
+
+### 5. Ejecutar
+
+Compilar y ejecutar con **F5**. La lista empieza vacía. Usar el botón **Nuevo** para registrar lotes; se guardan en la base de datos.
+
+### 6. Revisar los datos en la base de datos
+
+En SSMS, abrir y ejecutar `FarmaLoteVDG.sql/Consultas.sql`. Incluye consultas para ver los lotes activos, los retirados, los próximos a vencer y un resumen por estado.
+
+## Estructura de la carpeta SQL
+
+```
+FarmaLoteVDG.sql/
+├── FarmaLoteVDG.sql   Script base: base de datos, tablas, procedimientos y trigger
+└── Consultas.sql      Consultas para verificar los datos
+```
+
+## Datos de prueba sugeridos
+
+| Medicamento | N.º de lote | Cantidad | Estado esperado |
+|---|---|---|---|
+| Paracetamol 500 mg | PAR-2601 | 120 | Vigente |
+| Amoxicilina 500 mg | AMX-2602 | 48 | Por vencer (menos de 30 días) |
+| Loratadina 10 mg | LOR-2603 | 32 | Vencido |
+
+## Problemas frecuentes
+
+| Mensaje | Causa y solución |
+|---|---|
+| "El sistema no puede encontrar el archivo especificado" o "no se encontró el servidor" | El `Server=` del `App.config` no coincide con su instancia. Revisar el nombre en SSMS o en `services.msc`. |
+| "Cannot open database FarmaLoteVDG" | No ejecutaron el script del paso 3. |
+| "Invalid column name ..." | Tienen una base `FarmaLoteVDG` de una versión anterior. Borrarla en SSMS y volver a ejecutar el script. |
+| "Could not find stored procedure" | El script no se ejecutó completo. Volver a ejecutarlo. |
+| "El nombre 'ConfigurationManager' no existe" | Falta la referencia a `System.Configuration` (Referencias → Agregar referencia → System.Configuration). |
+| "La operación del depurador está tardando más de lo previsto" | Suele ser la conexión a SQL Server esperando respuesta. Revisar que el servicio esté en ejecución y que el `Server=` sea correcto. |
+
+## Cómo funciona la conexión
+
+- `Datos.cs` (clase `ConexionTest`) contiene los métodos que hablan con la base de datos: `ListarLotes`, `CrearLote`, `ActualizarLote` y `RetirarLote`.
+- Cada método llama a un procedimiento almacenado del script SQL.
+- **Retirar** un lote no lo borra: lo marca como inactivo (`Activo = 0`), por eso desaparece de la lista pero sigue en la tabla.
